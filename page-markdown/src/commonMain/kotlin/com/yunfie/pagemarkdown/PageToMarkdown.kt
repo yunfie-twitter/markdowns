@@ -22,7 +22,8 @@ object PageToMarkdown {
         ".p-toc", ".toc", ".table-of-contents", ".ez-toc-container",
         "ins.adsbygoogle", ".widget_swell_ad_widget", ".c-shareBtns", ".sharedaddy",
         ".jp-relatedposts", ".related-posts", ".related-articles", ".post-navigation",
-        ".wp-block-post-navigation-link", ".wp-block-query", ".comments-area", "#comments"
+        ".wp-block-post-navigation-link", ".wp-block-query", ".comments-area", "#comments",
+        "#additional", "#author", "#tail"
     ).joinToString(", ")
 
     private val mainContentSelector = listOf(
@@ -32,7 +33,7 @@ object PageToMarkdown {
         ".post__content", ".post-body", ".entry-content", ".entry-body", ".entry__content",
         ".wp-block-post-content", ".wp-block-post-content__content", ".td-post-content",
         ".et_pb_post_content", ".elementor-widget-theme-post-content", ".story-body",
-        ".page-content", ".page__content", ".main-content", ".content-area", ".site-main",
+        ".subscription", "#cmsBody .inner", ".page-content", ".page__content", ".main-content", ".content-area", ".site-main",
         ".content-inner", ".article-container", "#primary", "#articleBody", "#article-body", "#article", "#content"
     ).joinToString(", ")
 
@@ -43,7 +44,7 @@ object PageToMarkdown {
         ".post-content", ".post__content", ".post-body", ".entry-content", ".entry-body",
         ".entry__content", ".wp-block-post-content", ".wp-block-post-content__content",
         ".td-post-content", ".et_pb_post_content", ".elementor-widget-theme-post-content",
-        ".story-body", ".article-container", "#post-data", "#post-hentai", "#articleBody", "#article-body"
+        ".subscription", ".story-body", ".article-container", "#post-data", "#post-hentai", "#articleBody", "#article-body"
     ).joinToString(", ")
 
     private val clutterPattern = Regex(
@@ -67,17 +68,18 @@ object PageToMarkdown {
             document.select(mainContentSelector)
         )
         val rendered = renderChildren(content, 0).trim()
-        val pageTitle = document.selectFirst("article h1, main h1, [itemprop=headline]")?.text()?.trim().orEmpty()
+        val pageTitle = document.selectFirst(".title__maintext, article h1, main h1, [itemprop=headline]")?.text()?.trim().orEmpty()
             .ifBlank { document.selectFirst("meta[property=og:title]")?.attr("content")?.trim().orEmpty() }
             .ifBlank { document.selectFirst("h1")?.text()?.trim().orEmpty() }
             .ifBlank { document.title().substringBefore(" - ").trim() }
-        val subtitle = document.selectFirst(".article-subheadline, .article-header h2")
+        val subtitle = document.selectFirst(".title__subtitle, .article-subheadline, .article-header h2")
             ?.text()?.trim().orEmpty()
         val publicationTime = document.selectFirst("article time[datetime], main time[datetime], time[datetime]")
             ?.text()?.trim().orEmpty()
+            .ifBlank { document.selectFirst("#cmsDate, .article-date, .post-date, .entry-date")?.text()?.trim().orEmpty() }
             .ifBlank { document.selectFirst("meta[property=article:published_time]")?.attr("content")?.trim().orEmpty() }
         val hasHeading = content.selectFirst("h1") != null
-        val hasSubtitle = content.selectFirst(".article-subheadline, .article-header h2") != null
+        val hasSubtitle = content.selectFirst(".title__subtitle, .article-subheadline, .article-header h2") != null
         val hasTime = content.selectFirst("time[datetime]") != null
         val withTitle = buildString {
             if (pageTitle.isNotBlank() && !hasHeading) append("# $pageTitle\n\n")
@@ -135,6 +137,7 @@ object PageToMarkdown {
             .filter { it !== body && it.text().length >= 80 }
         preferred.firstOrNull { it.id() == "personal-public-article-body" }?.let { return it }
         preferred.firstOrNull { it.id() == "post-data" }?.let { return it }
+        preferred.firstOrNull { it.hasClass("subscription") }?.let { return it }
         preferred.firstOrNull { it.hasClass("p-main-contents") }?.let { return it }
         preferred.firstOrNull { it.hasClass("post_content") }?.let { return it }
         preferred.firstOrNull { it.hasClass("wp-block-post-content") }?.let { return it }
